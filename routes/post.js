@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
+const moment = require('moment');
 const AWS = require('aws-sdk');
 const fs = require('fs');
 let credentials = fs.readFileSync('credentials.json').toString('utf-8');
@@ -28,10 +29,9 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  // TODO: Get actual datetime.
   const post = {
     Title: req.body.title,
-    PublishDate: '2019-12-03T14:48:32.000Z',
+    PublishDate: moment().toISOString(),
     Content: req.body.content
   };
 
@@ -40,7 +40,7 @@ router.put('/', (req, res) => {
     Item: post
   };
 
-  docClient.put(params, (err, result) => {
+  docClient.put(params, (err) => {
     if (err) {
       console.error(err);
       res.status(500).send(err);
