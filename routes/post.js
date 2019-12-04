@@ -3,11 +3,7 @@ const router = express.Router();
 
 const moment = require('moment');
 const AWS = require('aws-sdk');
-const fs = require('fs');
-let credentials = fs.readFileSync('credentials.json').toString('utf-8');
-credentials = JSON.parse(credentials);
 
-AWS.config.update(credentials);
 const docClient = new AWS.DynamoDB.DocumentClient();
 const tableName = 'Post';
 
