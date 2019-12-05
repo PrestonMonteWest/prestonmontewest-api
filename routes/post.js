@@ -9,18 +9,26 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 const tableName = 'Post';
 
 
-router.get('/', (req, res) => {
-  // TODO: add filtering capabilities.
+router.get('/', async (req, res) => {
+  const posts = [];
+  const limit = req.query.limit;
   const params = {
-    TableName: tableName
+    TableName: tableName,
   };
-  docClient.scan(params, (err, data, next) => {
-    if (err) {
-      next(err);
-      return;
-    }
-    res.send(data.Items);
-  });
+  if (limit) params.Limit = limit;
+
+  let data = await docClient.scan(params).promise();
+  let lastKey = data.LastEvaluatedKey;
+  posts.push(...data.Items);
+  while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
+    if (limit) params.Limit = limit - posts.length;
+    params.ExclusiveStartKey = lastKey;
+    data = await docClient.scan(params).promise();
+    lastKey = data.LastEvaluatedKey;
+    posts.push(...data.Items)
+  }
+
+  res.send(posts);
 });
 
 router.put('/', (req, res, next) => {
