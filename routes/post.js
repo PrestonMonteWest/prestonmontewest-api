@@ -84,9 +84,9 @@ router.put('/', async (req, res, next) => {
     }
 
     const post = {
-      Title: body.title,
-      PublishDate: moment().toISOString(),
-      Content: body.content
+      title: body.title,
+      publishDate: moment().toISOString(),
+      content: body.content
     };
     const params = {
       TableName: tableName,
