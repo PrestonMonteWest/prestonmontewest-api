@@ -19,7 +19,7 @@ class HttpError extends Error {
 
 function sendError(res, err) {
   console.error(err);
-  res.status(err.status).json({
+  res.status(err.status || 500).json({
     name: err.name,
     message: err.message,
     status: err.status,
@@ -31,7 +31,7 @@ router.get('/:postTitle', async (req, res) => {
     const postTitle = req.params.postTitle;
     const params = {
       Key: {
-        Title: postTitle,
+        title: postTitle,
       },
       TableName: tableName,
     };
