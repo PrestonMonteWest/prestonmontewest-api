@@ -37,6 +37,9 @@ router.get('/:postTitle', async (req, res) => {
     };
 
     const data = await docClient.get(params).promise();
+    if (_.isUndefined(data.Item)) {
+      sendError(res, new HttpError('no post found with that title', 404))
+    }
 
     res.send(data.Item);
   } catch (err) {
