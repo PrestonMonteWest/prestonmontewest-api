@@ -1,10 +1,15 @@
 {
   "name": "api",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
+  "project": "prestonmontewest",
   "scripts": {
-    "start": "node index.js",
-    "nodemon": "nodemon index.js"
+    "start": "PORT=3000 node index.js",
+    "nodemon": "PORT=3000 nodemon index.js",
+    "start:docker": "docker run --env-file .env -p 3000:3000 $npm_package_project/$npm_package_name:$npm_package_version",
+    "push": "docker push $npm_package_project/$npm_package_name:$npm_package_version",
+    "build": "docker build --build-arg port=3000 -t $npm_package_project/$npm_package_name:$npm_package_version .",
+    "postbuild": "npm run push"
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
