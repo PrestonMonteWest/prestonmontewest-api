@@ -20,3 +20,6 @@ Retrieves a single post from DynamoDB Post table using a title.
 post/My Post Title
 ```
 This gets a post named 'My Post Title' if it exists; otherwise, it returns a 404.
+
+## Versioning
+This project uses [semantic versioning 2.0.0](https://semver.org/).
