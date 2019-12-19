@@ -8,7 +8,7 @@
     "nodemon": "nodemon --watch .env index.js",
     "push": "docker push $npm_package_project/$npm_package_name:$npm_package_version",
     "build": "docker build -t $npm_package_project/$npm_package_name:$npm_package_version .",
-    "post build": "npm run push"
+    "postbuild": "npm run push"
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
