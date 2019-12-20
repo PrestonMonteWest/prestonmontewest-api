@@ -1,4 +1,6 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 if (!process.env.AWS_ACCESS_KEY_ID) {
   throw new Error('AWS_ACCESS_KEY_ID environment variable required');
