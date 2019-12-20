@@ -1,15 +1,21 @@
 {
   "name": "api",
-  "version": "1.1.0",
+  "version": "1.1.6",
   "private": true,
+  "project": "prestonmontewest",
   "scripts": {
-    "start": "nodemon index.js"
+    "start": "node index.js",
+    "nodemon": "nodemon --watch .env index.js",
+    "push": "docker push $npm_package_project/$npm_package_name:$npm_package_version",
+    "build": "docker build -t $npm_package_project/$npm_package_name:$npm_package_version .",
+    "postbuild": "npm run push"
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
     "express": "~4.16.1",
     "lodash": "^4.17.15",
-    "moment": "^2.24.0"
+    "moment": "^2.24.0",
+    "morgan": "^1.9.1"
   },
   "devDependencies": {
     "dotenv": "^8.2.0",
