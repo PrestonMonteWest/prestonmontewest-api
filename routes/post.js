@@ -26,9 +26,21 @@ function sendError(res, err) {
   });
 }
 
+function urlDecode(value) {
+  return titleCase(value.replace(/-/g, ' '));
+}
+
+function titleCase(value) {
+  const values = value.toLowerCase().split(' ');
+  for (var i = 0; i < values.length; i++) {
+    values[i] = values[i].charAt(0).toUpperCase() + values[i].slice(1);
+  }
+  return values.join(' ');
+}
+
 router.get('/:postTitle', async (req, res) => {
   try {
-    const postTitle = req.params.postTitle;
+    const postTitle = urlDecode(req.params.postTitle);
     const params = {
       Key: {
         title: postTitle,
@@ -79,12 +91,16 @@ router.get('/', async (req, res) => {
 router.put('/', async (req, res, next) => {
   try {
     const body = req.body;
-    if (!_.isString(body.title)) {
-      throw new HttpError('title must be a string', 400);
+    body.title = body.title.trim();
+    body.content = body.content.trim();
+    if (!_.isString(body.title) || body.title.length === 0) {
+      throw new HttpError('title must be a nonempty string', 400);
     }
-    if (!_.isString(body.content)) {
-      throw new HttpError('content must be a string', 400);
+    if (!_.isString(body.content) || body.content.length === 0) {
+      throw new HttpError('content must be a nonempty string', 400);
     }
+    // Store in DynamoDB as title case.
+    body.title = titleCase(body.title);
 
     const post = {
       title: body.title,

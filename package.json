@@ -1,11 +1,11 @@
 {
   "name": "api",
-  "version": "1.1.7",
+  "version": "1.2.0",
   "private": true,
   "project": "prestonmontewest",
   "scripts": {
     "start": "PORT=3000 node index.js",
-    "nodemon": "PORT=3000 nodemon --watch .env index.js"
+    "nodemon": "PORT=3000 nodemon index.js"
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
