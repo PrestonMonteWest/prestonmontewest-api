@@ -105,11 +105,15 @@ router.put('/', async (req, res, next) => {
     const post = {
       title: body.title,
       publishDate: moment().toISOString(),
-      content: body.content
+      content: body.content,
     };
+    if (body.image) {
+      post.image = body.image;
+    }
+
     const params = {
       TableName: tableName,
-      Item: post
+      Item: post,
     };
 
     await docClient.put(params).promise();
