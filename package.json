@@ -1,11 +1,11 @@
 {
   "name": "api",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "project": "prestonmontewest",
   "scripts": {
-    "start": "PORT=3000 node index.js",
-    "nodemon": "PORT=3000 nodemon index.js"
+    "start": "PORT=3000 node src/index.js",
+    "nodemon": "PORT=3000 nodemon src/index.js"
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
