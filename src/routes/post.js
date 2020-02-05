@@ -8,7 +8,6 @@ const AWS = require('aws-sdk');
 const docClient = new AWS.DynamoDB.DocumentClient();
 const tableName = 'Post';
 
-
 class HttpError extends Error {
   constructor(message, status = 500) {
     super(message);
@@ -66,9 +65,12 @@ router.get('/', async (req, res) => {
     if (limit && (!Number.isInteger(+limit) || limit <= 0)) {
       throw new HttpError('limit must be a positive integer', 400);
     }
-    const params = {
-      TableName: tableName,
-    };
+    const params = { TableName: tableName };
+    const title = req.query.title;
+    if (title) {
+      params.ExpressionAttributeValues = { ':t': title };
+      params.FilterExpression = 'contains(title, :t)';
+    }
     if (limit) params.Limit = limit;
 
     let data = await docClient.scan(params).promise();
@@ -123,6 +125,5 @@ router.put('/', async (req, res, next) => {
     sendError(res, err);
   }
 });
-
 
 module.exports = router;
