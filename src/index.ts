@@ -1,6 +1,11 @@
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
-}
+import { config } from 'dotenv';
+
+import initServer from './init-server';
+import postRouter from './routes/post';
+
+if (process.env.NODE_ENV !== 'production') config();
+
+// Possibly load env vars manually
 
 if (!process.env.AWS_ACCESS_KEY_ID) {
   throw new Error('AWS_ACCESS_KEY_ID environment variable required');
@@ -14,7 +19,9 @@ if (!process.env.AWS_REGION) {
   throw new Error('AWS_REGION environment variable required');
 }
 
-const postRouter = require('./routes/post');
-require('./make-server')([
-  ['/post', postRouter]
+initServer([
+  {
+    url: '/post',
+    router: postRouter
+  }
 ]);
