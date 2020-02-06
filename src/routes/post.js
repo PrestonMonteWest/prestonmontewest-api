@@ -68,8 +68,8 @@ router.get('/', async (req, res) => {
     const params = { TableName: tableName };
     const title = req.query.title;
     if (title) {
-      params.ExpressionAttributeValues = { ':t': title };
-      params.FilterExpression = 'contains(title, :t)';
+      params.ExpressionAttributeValues = { ':t': title.toLowerCase() };
+      params.FilterExpression = 'contains(searchTitle, :t)';
     }
     if (limit) params.Limit = limit;
 
@@ -106,6 +106,7 @@ router.put('/', async (req, res, next) => {
 
     const post = {
       title: body.title,
+      searchTitle: body.title.toLowerCase(),
       publishDate: moment().toISOString(),
       content: body.content,
     };
