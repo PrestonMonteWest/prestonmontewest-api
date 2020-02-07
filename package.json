@@ -8,8 +8,7 @@
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "tsc",
     "prestart": "npm run build",
-    "start": "PORT=3000 node .",
-    "nodemon": "PORT=3000 nodemon ."
+    "start": "PORT=3000 node ."
   },
   "dependencies": {
     "aws-sdk": "^2.579.0",
@@ -24,7 +23,6 @@
     "@types/morgan": "^1.7.37",
     "@types/node": "^13.7.0",
     "dotenv": "^8.2.0",
-    "nodemon": "^2.0.1",
     "tslint": "^6.0.0",
     "typescript": "^3.7.5"
   }

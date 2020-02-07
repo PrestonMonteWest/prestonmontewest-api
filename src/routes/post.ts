@@ -1,4 +1,5 @@
 import {
+  AttributeValue,
   DocumentClient,
   GetItemInput,
   GetItemOutput,
@@ -43,20 +44,16 @@ function titleCase(value: string): string {
 }
 
 const router: Router = Router();
-export default router;
 
 router.get('/:postTitle', async (req: Request, res: Response): Promise<void> => {
   try {
     const postTitle: string = urlDecode(req.params.postTitle);
     const params: GetItemInput = {
       Key: {
-        title: {
-          S: postTitle
-        }
+        title: (postTitle as AttributeValue)
       },
       TableName: tableName
     };
-
     const data: GetItemOutput = await docClient.get(params).promise();
     if (isUndefined(data.Item)) {
       throw new HttpError('no post found with that title', 404);
@@ -140,3 +137,5 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     sendError(res, err);
   }
 });
+
+export default router;

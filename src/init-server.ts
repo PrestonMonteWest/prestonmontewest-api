@@ -1,7 +1,7 @@
 import morgan from 'morgan';
 import express, { Express, Router } from 'express';
 
-interface RouterItem {
+export interface RouterItem {
   url: string;
   router: Router;
 }
