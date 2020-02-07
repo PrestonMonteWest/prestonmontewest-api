@@ -1,0 +1,43 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:10
+    steps:
+      - checkout
+      - run:
+          name: Install Packages
+          command: npm i
+      - run:
+          name: Build Production API
+          command: npm run build
+      - persist_to_workspace:
+          root: dist
+          paths:
+            - index.js
+  deploy:
+    docker:
+      - image: circleci/buildpack-deps:zesty
+    steps:
+      - attach_workspace:
+          at: dist
+      - add_ssh_keys:
+          fingerprints:
+            - "89:72:06:ee:03:0c:35:72:62:22:03:d7:11:5e:1f:0e"
+      - run:
+          name: Add Host To Known Hosts
+          command: ssh-keyscan -H prestonmontewest.com >> ~/.ssh/known_hosts
+      - run:
+          name: Deploy Bundle
+          command: scp dist/index.js ec2-user@prestonmontewest.com:/var/www/api
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: master
+      - deploy:
+          requires:
+            - build

@@ -1,13 +1,13 @@
 {
   "name": "api",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "project": "prestonmontewest",
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "webpack --config webpack.config.js",
-    "deploy": "scp -r dist/* ec2-user@prestonmontewest.com:/var/www/api",
+    "deploy": "scp dist/index.js ec2-user@prestonmontewest.com:/var/www/api",
     "prestart": "npm run build",
     "start": "PORT=3000 node ."
   },
