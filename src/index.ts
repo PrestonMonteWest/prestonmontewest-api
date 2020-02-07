@@ -1,5 +1,6 @@
-import { config } from 'dotenv';
-if (process.env.NODE_ENV !== 'production') config();
+if (process.env.NODE_ENV !== 'production') {
+  import('dotenv').then((dotenv) => dotenv.config());
+}
 if (!process.env.AWS_ACCESS_KEY_ID) {
   throw new Error('AWS_ACCESS_KEY_ID environment variable required');
 }

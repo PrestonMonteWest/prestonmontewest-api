@@ -1,12 +1,13 @@
 {
   "name": "api",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "project": "prestonmontewest",
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "tsc",
+    "deploy": "scp -r dist/* package.json ec2-user@prestonmontewest.com:/var/www/api",
     "prestart": "npm run build",
     "start": "PORT=3000 node ."
   },
