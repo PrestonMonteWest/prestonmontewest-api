@@ -6,7 +6,7 @@ export interface RouterItem {
   router: Router;
 }
 
-export default function initServer(routerItems: RouterItem[]): Express {
+export function initServer(routerItems: RouterItem[]): Express {
   const app: Express = express();
 
   app.use(morgan('tiny'));

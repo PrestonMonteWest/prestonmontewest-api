@@ -43,7 +43,7 @@ function titleCase(value: string): string {
   return values.join(' ');
 }
 
-const router: Router = Router();
+export const router: Router = Router();
 
 router.get('/:postTitle', async (req: Request, res: Response): Promise<void> => {
   try {
@@ -76,9 +76,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const title: string = req.query.title;
     if (title) {
       params.ExpressionAttributeValues = {
-        ':t': {
-          S: title.toLowerCase()
-        }
+        ':t': (title.toLowerCase() as AttributeValue)
       };
       params.FilterExpression = 'contains(searchTitle, :t)';
     }
@@ -137,5 +135,3 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     sendError(res, err);
   }
 });
-
-export default router;

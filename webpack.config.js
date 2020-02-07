@@ -4,7 +4,7 @@ module.exports = {
   entry: './src/index.ts',
   devtool: 'inline-source-map',
   target: 'node',
-  mode: 'production',
+  mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
   module: {
     rules: [
       {
@@ -20,5 +20,5 @@ module.exports = {
   output: {
     filename: 'index.js',
     path: path.resolve(__dirname, 'dist'),
-  },
+  }
 };
