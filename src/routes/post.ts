@@ -1,4 +1,5 @@
 import {
+  AttributeMap,
   AttributeValue,
   DocumentClient,
   GetItemInput,
@@ -43,23 +44,32 @@ function titleCase(value: string): string {
   return values.join(' ');
 }
 
+async function getPost(
+  postTitle: string,
+  decode: boolean = true
+): Promise<AttributeMap> {
+  if (decode) {
+    postTitle = urlDecode(postTitle);
+  }
+  const params: GetItemInput = {
+    Key: {
+      title: (postTitle as AttributeValue)
+    },
+    TableName: tableName
+  };
+  const data: GetItemOutput = await docClient.get(params).promise();
+  return data.Item;
+}
+
 export const router: Router = Router();
 
 router.get('/:postTitle', async (req: Request, res: Response): Promise<void> => {
   try {
-    const postTitle: string = urlDecode(req.params.postTitle);
-    const params: GetItemInput = {
-      Key: {
-        title: (postTitle as AttributeValue)
-      },
-      TableName: tableName
-    };
-    const data: GetItemOutput = await docClient.get(params).promise();
-    if (isUndefined(data.Item)) {
+    const post = await getPost(req.params.postTitle);
+    if (isUndefined(post)) {
       throw new HttpError('no post found with that title', 404);
     }
-
-    res.send(data.Item);
+    res.send(post);
   } catch (err) {
     sendError(res, err);
   }
@@ -112,12 +122,18 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     }
     // Store in DynamoDB as title case
     body.title = titleCase(body.title);
+    // Error out if post already exists
+    const existingPost = await getPost(body.title, false);
+    if (existingPost) {
+      throw new HttpError('post already exists', 400);
+    }
 
     const post: any = {
       title: body.title,
       searchTitle: body.title.toLowerCase(),
       publishDate: moment().toISOString(),
-      content: body.content
+      content: body.content,
+      summary: body.summary
     };
     if (body.image) {
       post.image = body.image;
