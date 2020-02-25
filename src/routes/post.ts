@@ -12,6 +12,8 @@ import {
 import { Request, Response, Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
+import { parse, UrlWithParsedQuery } from 'url';
+import { request } from 'http';
 
 const docClient: DocumentClient = new DocumentClient();
 const tableName: string = 'Post';
@@ -45,15 +47,15 @@ function titleCase(value: string): string {
 }
 
 async function getPost(
-  postTitle: string,
+  title: string,
   decode: boolean = true
 ): Promise<AttributeMap> {
   if (decode) {
-    postTitle = urlDecode(postTitle);
+    title = urlDecode(title);
   }
   const params: GetItemInput = {
     Key: {
-      title: (postTitle as AttributeValue)
+      title: (title as AttributeValue)
     },
     TableName: tableName
   };
@@ -112,14 +114,20 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const body: any = req.body;
-    body.title = body.title.trim();
-    body.content = body.content.trim();
-    if (!isString(body.title) || body.title.length === 0) {
+    body.title = isString(body.title) ? body.title.trim() : '';
+    if (body.title.length === 0) {
       throw new HttpError('title must be a nonempty string', 400);
     }
-    if (!isString(body.content) || body.content.length === 0) {
+    body.content = isString(body.content) ? body.content.trim() : '';
+    if (body.content.length === 0) {
       throw new HttpError('content must be a nonempty string', 400);
     }
+
+    if (!isString(body.image)) {
+      throw new HttpError('image must be a nonempty url', 400);
+    }
+    const url: UrlWithParsedQuery = parse(body.image, true);
+
     // Store in DynamoDB as title case
     body.title = titleCase(body.title);
     // Error out if post already exists
@@ -133,11 +141,9 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
       searchTitle: body.title.toLowerCase(),
       publishDate: moment().toISOString(),
       content: body.content,
-      summary: body.summary
+      summary: body.summary,
+      image: body.image
     };
-    if (body.image) {
-      post.image = body.image;
-    }
 
     const params: PutItemInput = {
       TableName: tableName,
