@@ -12,8 +12,7 @@ import {
 import { Request, Response, Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
-import { parse, UrlWithParsedQuery } from 'url';
-import { request } from 'http';
+import { default as rp, OptionsWithUri } from 'request-promise';
 
 const docClient: DocumentClient = new DocumentClient();
 const tableName: string = 'Post';
@@ -114,10 +113,19 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const body: any = req.body;
+
     body.title = isString(body.title) ? body.title.trim() : '';
     if (body.title.length === 0) {
       throw new HttpError('title must be a nonempty string', 400);
     }
+    // Store in DynamoDB as title case
+    body.title = titleCase(body.title);
+    // Error out if post already exists
+    const existingPost = await getPost(body.title, false);
+    if (existingPost) {
+      throw new HttpError('post already exists', 400);
+    }
+
     body.content = isString(body.content) ? body.content.trim() : '';
     if (body.content.length === 0) {
       throw new HttpError('content must be a nonempty string', 400);
@@ -126,15 +134,22 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     if (!isString(body.image)) {
       throw new HttpError('image must be a nonempty url', 400);
     }
-    const url: UrlWithParsedQuery = parse(body.image, true);
-
-    // Store in DynamoDB as title case
-    body.title = titleCase(body.title);
-    // Error out if post already exists
-    const existingPost = await getPost(body.title, false);
-    if (existingPost) {
-      throw new HttpError('post already exists', 400);
-    }
+    const options: OptionsWithUri = {
+      method: 'HEAD',
+      uri: body.image,
+      resolveWithFullResponse: true
+    };
+    rp(options)
+      .then((response: any) => {
+        const { headers } = response;
+        console.log(response.headers);
+        Object.keys(response).forEach((key) => {
+          console.log(key);
+        });
+      })
+      .catch((err: any) => {
+        throw new HttpError('image is invalid', 400);
+      });
 
     const post: any = {
       title: body.title,
