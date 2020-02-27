@@ -115,7 +115,7 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
     const body: any = req.body;
 
     body.title = isString(body.title) ? body.title.trim() : '';
-    if (body.title.length === 0) {
+    if (!body.title) {
       throw new HttpError('title must be a nonempty string', 400);
     }
     // Store in DynamoDB as title case
@@ -126,12 +126,18 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
       throw new HttpError('post already exists', 400);
     }
 
+    body.summary = isString(body.summary) ? body.summary.trim() : '';
+    if (!body.summary) {
+      throw new HttpError('summary must be a nonempty string', 400);
+    }
+
     body.content = isString(body.content) ? body.content.trim() : '';
-    if (body.content.length === 0) {
+    if (!body.content) {
       throw new HttpError('content must be a nonempty string', 400);
     }
 
-    if (!isString(body.image)) {
+    body.image = isString(body.image) ? body.image.trim() : '';
+    if (!body.image) {
       throw new HttpError('image must be a nonempty url', 400);
     }
     const options: OptionsWithUri = {
@@ -140,34 +146,28 @@ router.put('/', async (req: Request, res: Response): Promise<void> => {
       resolveWithFullResponse: true
     };
     rp(options)
-      .then((response: any) => {
-        const { headers } = response;
-        console.log(response.headers);
-        Object.keys(response).forEach((key) => {
-          console.log(key);
-        });
+      .then(async (response: any) => {
+        const post: any = {
+          title: body.title,
+          searchTitle: body.title.toLowerCase(),
+          publishDate: moment().toISOString(),
+          content: body.content,
+          summary: body.summary,
+          image: body.image
+        };
+
+        const params: PutItemInput = {
+          TableName: tableName,
+          Item: post
+        };
+
+        await docClient.put(params).promise();
+        res.send(post);
       })
       .catch((err: any) => {
+        // TODO: send error
         throw new HttpError('image is invalid', 400);
       });
-
-    const post: any = {
-      title: body.title,
-      searchTitle: body.title.toLowerCase(),
-      publishDate: moment().toISOString(),
-      content: body.content,
-      summary: body.summary,
-      image: body.image
-    };
-
-    const params: PutItemInput = {
-      TableName: tableName,
-      Item: post
-    };
-
-    await docClient.put(params).promise();
-
-    res.send(post);
   } catch (err) {
     sendError(res, err);
   }
