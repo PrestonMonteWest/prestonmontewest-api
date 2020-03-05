@@ -50,7 +50,7 @@ function titleCase(value: string): string {
 async function getPost(
   title: string,
   decode: boolean = true
-): Promise<AttributeMap> {
+): Promise<AttributeMap | undefined> {
   if (decode) {
     title = urlDecode(title);
   }
@@ -96,7 +96,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (limit) params.Limit = limit;
 
     let data: ScanOutput = await docClient.scan(params).promise();
-    let lastKey: Key = data.LastEvaluatedKey;
+    let lastKey: Key | undefined = data.LastEvaluatedKey;
     posts.push(...(data.Items as any[]));
     while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
       if (limit) params.Limit = limit - posts.length;
