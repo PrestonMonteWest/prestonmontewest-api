@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "private": true,
   "project": "prestonmontewest",
   "main": "dist/index.js",
