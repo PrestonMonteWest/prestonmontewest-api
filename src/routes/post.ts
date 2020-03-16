@@ -12,7 +12,9 @@ import {
 import { Request, Response, Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
-import { default as rp, OptionsWithUri } from 'request-promise';
+import { OptionsWithUri } from 'request';
+import { default as rp } from 'request-promise';
+import { Post } from '../classes/post';
 
 const docClient: DocumentClient = new DocumentClient();
 const tableName: string = 'Post';
@@ -48,7 +50,7 @@ function titleCase(value: string): string {
 async function getPost(
   title: string,
   decode: boolean = true
-): Promise<AttributeMap> {
+): Promise<AttributeMap | undefined> {
   if (decode) {
     title = urlDecode(title);
   }
@@ -94,7 +96,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     if (limit) params.Limit = limit;
 
     let data: ScanOutput = await docClient.scan(params).promise();
-    let lastKey: Key = data.LastEvaluatedKey;
+    let lastKey: Key | undefined = data.LastEvaluatedKey;
     posts.push(...(data.Items as any[]));
     while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
       if (limit) params.Limit = limit - posts.length;
@@ -110,64 +112,69 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
+async function validatePost(post: Post): Promise<void> {
+  post.title = isString(post.title) ? post.title.trim() : '';
+  if (!post.title) {
+    throw new HttpError('title must be a nonempty string', 400);
+  }
+  // Store in DynamoDB as title case
+  post.title = titleCase(post.title);
+  // Error out if post already exists
+  const existingPost = await getPost(post.title, false);
+  if (existingPost) {
+    throw new HttpError('post already exists', 400);
+  }
+
+  post.summary = isString(post.summary) ? post.summary.trim() : '';
+  if (!post.summary) {
+    throw new HttpError('summary must be a nonempty string', 400);
+  }
+
+  post.content = isString(post.content) ? post.content.trim() : '';
+  if (!post.content) {
+    throw new HttpError('content must be a nonempty string', 400);
+  }
+
+  post.image = isString(post.image) ? post.image.trim() : '';
+  if (!post.image) {
+    throw new HttpError('image must be a nonempty url', 400);
+  }
+  const options: OptionsWithUri = {
+    uri: post.image,
+    method: 'HEAD'
+  };
+  let response;
+  try {
+    response = await rp(options);
+  } catch (err) {
+    throw new HttpError('image url is invalid', 400);
+  }
+  const mimeType = response['content-type'].split('/')[0];
+  if (mimeType !== 'image') {
+    throw new HttpError('url does not point to an image', 400);
+  }
+}
+
 router.put('/', async (req: Request, res: Response): Promise<void> => {
   try {
-    const body: any = req.body;
-
-    body.title = isString(body.title) ? body.title.trim() : '';
-    if (!body.title) {
-      throw new HttpError('title must be a nonempty string', 400);
-    }
-    // Store in DynamoDB as title case
-    body.title = titleCase(body.title);
-    // Error out if post already exists
-    const existingPost = await getPost(body.title, false);
-    if (existingPost) {
-      throw new HttpError('post already exists', 400);
-    }
-
-    body.summary = isString(body.summary) ? body.summary.trim() : '';
-    if (!body.summary) {
-      throw new HttpError('summary must be a nonempty string', 400);
-    }
-
-    body.content = isString(body.content) ? body.content.trim() : '';
-    if (!body.content) {
-      throw new HttpError('content must be a nonempty string', 400);
-    }
-
-    body.image = isString(body.image) ? body.image.trim() : '';
-    if (!body.image) {
-      throw new HttpError('image must be a nonempty url', 400);
-    }
-    const options: OptionsWithUri = {
-      method: 'HEAD',
-      uri: body.image,
-      resolveWithFullResponse: true
+    const body: Post = req.body;
+    await validatePost(body);
+    const post: any = {
+      title: body.title,
+      searchTitle: body.title.toLowerCase(),
+      publishDate: moment().toISOString(),
+      content: body.content,
+      summary: body.summary,
+      image: body.image
     };
-    rp(options)
-      .then(async (response: any) => {
-        const post: any = {
-          title: body.title,
-          searchTitle: body.title.toLowerCase(),
-          publishDate: moment().toISOString(),
-          content: body.content,
-          summary: body.summary,
-          image: body.image
-        };
 
-        const params: PutItemInput = {
-          TableName: tableName,
-          Item: post
-        };
+    const params: PutItemInput = {
+      TableName: tableName,
+      Item: post
+    };
 
-        await docClient.put(params).promise();
-        res.send(post);
-      })
-      .catch((err: any) => {
-        // TODO: send error
-        throw new HttpError('image is invalid', 400);
-      });
+    await docClient.put(params).promise();
+    res.send(post);
   } catch (err) {
     sendError(res, err);
   }

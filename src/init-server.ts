@@ -15,7 +15,7 @@ export function initServer(routerItems: RouterItem[]): Express {
     app.use(item.url, item.router);
   }
 
-  const port: number = +process.env.PORT || 3000;
+  const port: number = +(process.env.PORT || 3000);
   app.listen(port, () => console.log(`API server listening on port ${port}`));
   return app;
 }
