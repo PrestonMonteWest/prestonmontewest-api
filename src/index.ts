@@ -15,12 +15,10 @@ import { Router } from 'express';
   }
 
   const postRouter: Router = (await import('./routes/post')).router;
-  (await import('./init-server')).initServer(
-    [
-      {
-        url: '/post',
-        router: postRouter
-      }
-    ]
-  );
+  (await import('./init-server')).initServer([
+    {
+      url: '/post',
+      router: postRouter
+    }
+  ]);
 })();

@@ -9,15 +9,20 @@ import {
   ScanInput,
   ScanOutput
 } from 'aws-sdk/clients/dynamodb';
+import S3 from 'aws-sdk/clients/s3';
 import { Request, Response, Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
-import { OptionsWithUri } from 'request';
-import { default as rp } from 'request-promise';
+import multer from 'multer';
 import { Post } from '../classes/post';
 
 const docClient: DocumentClient = new DocumentClient();
 const tableName: string = 'Post';
+
+const s3Client: S3 = new S3();
+const s3UploadPath: string = 'prestonmontewest/post';
+
+const fileUpload = multer();
 
 class HttpError extends Error {
   constructor(message: string, public status: number = 500) {
@@ -135,44 +140,42 @@ async function validatePost(post: Post): Promise<void> {
     throw new HttpError('content must be a nonempty string', 400);
   }
 
-  post.image = isString(post.image) ? post.image.trim() : '';
-  if (!post.image) {
-    throw new HttpError('image must be a nonempty url', 400);
-  }
-  const options: OptionsWithUri = {
-    uri: post.image,
-    method: 'HEAD'
-  };
-  let response;
-  try {
-    response = await rp(options);
-  } catch (err) {
-    throw new HttpError('image url is invalid', 400);
-  }
-  const mimeType = response['content-type'].split('/')[0];
-  if (mimeType !== 'image') {
-    throw new HttpError('url does not point to an image', 400);
+  if (post.image.mimetype.split('/')[0] !== 'image') {
+    throw new HttpError('file must be an image', 400);
   }
 }
 
-router.put('/', async (req: Request, res: Response): Promise<void> => {
+router.post(
+  '/',
+  fileUpload.single('image'),
+  async (req: Request, res: Response
+): Promise<void> => {
   try {
     const body: Post = req.body;
+    body.image = req.file;
     await validatePost(body);
+
+    let imageUrl = await s3Client.getSignedUrlPromise('putObject', {
+      Bucket: s3UploadPath,
+      Key: body.image.originalname,
+      Body: body.image.buffer,
+      ContentType: body.image.mimetype,
+      ACL: 'public-read'
+    });
+    imageUrl = imageUrl.split('?')[0];
+
     const post: any = {
       title: body.title,
       searchTitle: body.title.toLowerCase(),
       publishDate: moment().toISOString(),
       content: body.content,
       summary: body.summary,
-      image: body.image
+      image: imageUrl
     };
-
     const params: PutItemInput = {
       TableName: tableName,
       Item: post
     };
-
     await docClient.put(params).promise();
     res.send(post);
   } catch (err) {
