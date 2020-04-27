@@ -91,7 +91,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       throw new HttpError('limit must be a positive integer', 400);
     }
     const params: ScanInput = { TableName: tableName };
-    const title: string = req.query.title;
+    const title: string = req.query.title as string;
     if (title) {
       params.ExpressionAttributeValues = {
         ':t': (title.toLowerCase() as AttributeValue)
