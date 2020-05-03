@@ -11,10 +11,12 @@ import {
 } from 'aws-sdk/clients/dynamodb';
 import S3 from 'aws-sdk/clients/s3';
 import { Request, Response, Router } from 'express';
+import jwtAuthz from 'express-jwt-authz';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
 import multer from 'multer';
-import { Post } from '../classes/post';
+import { Post, HttpError } from '../classes';
+import { checkJwt } from '../middleware';
 
 const docClient: DocumentClient = new DocumentClient();
 const tableName: string = process.env.AWS_DYNAMODB_TABLE as string;
@@ -27,22 +29,6 @@ const s3Hostname: string = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com`;
 const s3HostnamePostPath: string = `${s3Hostname}/post`;
 
 const fileUpload = multer();
-
-class HttpError extends Error {
-  constructor(message: string, public status: number = 500) {
-    super(message);
-    this.name = HttpError.name;
-  }
-}
-
-function sendError(res: Response, err: HttpError): void {
-  console.error(err);
-  res.status(err.status || 500).json({
-    name: err.name,
-    message: err.message,
-    status: err.status
-  });
-}
 
 function urlDecode(value: string): string {
   return titleCase(value.replace(/-/g, ' '));
@@ -76,82 +62,79 @@ async function getPost(
 export const router: Router = Router();
 
 router.get('/:postTitle', async (req: Request, res: Response) => {
-  try {
-    const post = await getPost(req.params.postTitle);
-    if (isUndefined(post)) {
-      throw new HttpError('no post found with that title', 404);
-    }
-    res.send(post);
-  } catch (err) {
-    sendError(res, err);
+  const post = await getPost(req.params.postTitle);
+  if (isUndefined(post)) {
+    throw new HttpError('No post found with that title', 404);
   }
+  res.send(post);
 });
 
 router.get('/', async (req: Request, res: Response) => {
-  try {
-    const posts: any[] = [];
-    const limit: number = +req.query.limit;
-    if (req.query.limit && (!Number.isInteger(limit) || limit <= 0)) {
-      throw new HttpError('limit must be a positive integer', 400);
-    }
-    const params: ScanInput = { TableName: tableName };
-    const title: string = req.query.title as string;
-    if (title) {
-      params.ExpressionAttributeValues = {
-        ':t': (titleCase(title) as AttributeValue)
-      };
-      params.FilterExpression = 'contains(title, :t)';
-    }
-    if (limit) params.Limit = limit;
-
-    let data: ScanOutput = await docClient.scan(params).promise();
-    let lastKey: Key | undefined = data.LastEvaluatedKey;
-    posts.push(...(data.Items as any[]));
-    while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
-      if (limit) params.Limit = limit - posts.length;
-      params.ExclusiveStartKey = lastKey;
-      data = await docClient.scan(params).promise();
-      lastKey = data.LastEvaluatedKey;
-      posts.push(...(data.Items as any[]));
-    }
-
-    res.send(posts);
-  } catch (err) {
-    sendError(res, err);
+  const posts: any[] = [];
+  const limit: number = +req.query.limit;
+  if (req.query.limit && (!Number.isInteger(limit) || limit <= 0)) {
+    throw new HttpError('Limit must be a positive integer', 400);
   }
+  const params: ScanInput = { TableName: tableName };
+  const title: string = req.query.title as string;
+  if (title) {
+    params.ExpressionAttributeValues = {
+      ':t': (titleCase(title) as AttributeValue)
+    };
+    params.FilterExpression = 'contains(title, :t)';
+  }
+  if (limit) params.Limit = limit;
+
+  let data: ScanOutput = await docClient.scan(params).promise();
+  let lastKey: Key | undefined = data.LastEvaluatedKey;
+  posts.push(...(data.Items as any[]));
+  while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
+    if (limit) params.Limit = limit - posts.length;
+    params.ExclusiveStartKey = lastKey;
+    data = await docClient.scan(params).promise();
+    lastKey = data.LastEvaluatedKey;
+    posts.push(...(data.Items as any[]));
+  }
+
+  res.send(posts);
 });
 
 async function validatePost(post: Post) {
   post.title = isString(post.title) ? post.title.trim() : '';
   if (!post.title) {
-    throw new HttpError('title must be a nonempty string', 400);
+    throw new HttpError('Title must be a nonempty string', 400);
   }
   // Store in DynamoDB as title case
   post.title = titleCase(post.title);
   // Error out if post already exists
   const existingPost = await getPost(post.title, false);
   if (existingPost) {
-    throw new HttpError('post already exists', 400);
+    throw new HttpError('Post already exists', 400);
   }
 
   post.summary = isString(post.summary) ? post.summary.trim() : '';
   if (!post.summary) {
-    throw new HttpError('summary must be a nonempty string', 400);
+    throw new HttpError('Summary must be a nonempty string', 400);
   }
 
   post.content = isString(post.content) ? post.content.trim() : '';
   if (!post.content) {
-    throw new HttpError('content must be a nonempty string', 400);
+    throw new HttpError('Content must be a nonempty string', 400);
   }
 
   if (post.image.mimetype.split('/')[0] !== 'image') {
-    throw new HttpError('file must be an image', 400);
+    throw new HttpError('File must be an image', 400);
   }
 }
 
+const checkCreate = jwtAuthz([ 'create:post' ]);
 const singleImage = fileUpload.single('image');
-router.post('/', singleImage, async (req: Request, res: Response) => {
-  try {
+router.post(
+  '/',
+  checkJwt,
+  checkCreate,
+  singleImage,
+  async (req: Request, res: Response) => {
     const body: Post = req.body;
     body.image = req.file;
     await validatePost(body);
@@ -178,7 +161,5 @@ router.post('/', singleImage, async (req: Request, res: Response) => {
     };
     await docClient.put(params).promise();
     res.send(post);
-  } catch (err) {
-    sendError(res, err);
   }
-});
+);

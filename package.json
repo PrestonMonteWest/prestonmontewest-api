@@ -1,6 +1,6 @@
 {
   "name": "api",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": true,
   "project": "prestonmontewest",
   "main": "dist/index.js",
@@ -16,6 +16,9 @@
     "@types/multer": "^1.4.3",
     "aws-sdk": "^2.664.0",
     "express": "~4.16.1",
+    "express-jwt": "^5.3.3",
+    "express-jwt-authz": "github:auth0/express-jwt-authz#master",
+    "jwks-rsa": "^1.8.0",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",
     "morgan": "^1.10.0",
