@@ -17,10 +17,14 @@ import multer from 'multer';
 import { Post } from '../classes/post';
 
 const docClient: DocumentClient = new DocumentClient();
-const tableName: string = 'Post';
+const tableName: string = process.env.AWS_DYNAMODB_TABLE as string;
 
 const s3Client: S3 = new S3();
-const s3UploadPath: string = 'prestonmontewest/post';
+const s3Bucket: string = process.env.AWS_S3_BUCKET as string;
+const s3BucketPostPath: string = `${s3Bucket}/post`;
+const awsRegion: string = process.env.AWS_REGION as string;
+const s3Hostname: string = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com`;
+const s3HostnamePostPath: string = `${s3Hostname}/post`;
 
 const fileUpload = multer();
 
@@ -71,7 +75,7 @@ async function getPost(
 
 export const router: Router = Router();
 
-router.get('/:postTitle', async (req: Request, res: Response): Promise<void> => {
+router.get('/:postTitle', async (req: Request, res: Response) => {
   try {
     const post = await getPost(req.params.postTitle);
     if (isUndefined(post)) {
@@ -83,7 +87,7 @@ router.get('/:postTitle', async (req: Request, res: Response): Promise<void> => 
   }
 });
 
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const posts: any[] = [];
     const limit: number = +req.query.limit;
@@ -94,9 +98,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     const title: string = req.query.title as string;
     if (title) {
       params.ExpressionAttributeValues = {
-        ':t': (title.toLowerCase() as AttributeValue)
+        ':t': (titleCase(title) as AttributeValue)
       };
-      params.FilterExpression = 'contains(searchTitle, :t)';
+      params.FilterExpression = 'contains(title, :t)';
     }
     if (limit) params.Limit = limit;
 
@@ -117,7 +121,7 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-async function validatePost(post: Post): Promise<void> {
+async function validatePost(post: Post) {
   post.title = isString(post.title) ? post.title.trim() : '';
   if (!post.title) {
     throw new HttpError('title must be a nonempty string', 400);
@@ -145,28 +149,24 @@ async function validatePost(post: Post): Promise<void> {
   }
 }
 
-router.post(
-  '/',
-  fileUpload.single('image'),
-  async (req: Request, res: Response
-): Promise<void> => {
+const singleImage = fileUpload.single('image');
+router.post('/', singleImage, async (req: Request, res: Response) => {
   try {
     const body: Post = req.body;
     body.image = req.file;
     await validatePost(body);
 
-    let imageUrl = await s3Client.getSignedUrlPromise('putObject', {
-      Bucket: s3UploadPath,
+    await s3Client.putObject({
+      Bucket: s3BucketPostPath,
       Key: body.image.originalname,
       Body: body.image.buffer,
       ContentType: body.image.mimetype,
       ACL: 'public-read'
-    });
-    imageUrl = imageUrl.split('?')[0];
+    }).promise();
 
+    const imageUrl = `${s3HostnamePostPath}/${body.image.originalname}`;
     const post: any = {
       title: body.title,
-      searchTitle: body.title.toLowerCase(),
       publishDate: moment().toISOString(),
       content: body.content,
       summary: body.summary,

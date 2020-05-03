@@ -13,6 +13,12 @@ import { Router } from 'express';
   if (!process.env.AWS_REGION) {
     throw new Error('AWS_REGION environment variable required');
   }
+  if (!process.env.AWS_DYNAMODB_TABLE) {
+    throw new Error('AWS_DYNAMODB_TABLE environment variable required');
+  }
+  if (!process.env.AWS_S3_BUCKET) {
+    throw new Error('AWS_S3_BUCKET environment variable required');
+  }
 
   const postRouter: Router = (await import('./routes/post')).router;
   (await import('./init-server')).initServer([
