@@ -7,7 +7,8 @@ import {
   Key,
   PutItemInput,
   ScanInput,
-  ScanOutput
+  ScanOutput,
+  UpdateItemInput
 } from 'aws-sdk/clients/dynamodb';
 import S3 from 'aws-sdk/clients/s3';
 import { Request, Response, Router } from 'express';
@@ -15,6 +16,7 @@ import jwtAuthz from 'express-jwt-authz';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
 import multer from 'multer';
+
 import { Post, HttpError } from '../classes';
 import { checkJwt } from '../middleware';
 
@@ -127,12 +129,10 @@ async function validatePost(post: Post) {
   }
 }
 
-const checkCreate = jwtAuthz([ 'create:post' ]);
 const singleImage = fileUpload.single('image');
 router.post(
   '/',
   checkJwt,
-  checkCreate,
   singleImage,
   async (req: Request, res: Response) => {
     const body: Post = req.body;
@@ -150,10 +150,11 @@ router.post(
     const imageUrl = `${s3HostnamePostPath}/${body.image.originalname}`;
     const post: any = {
       title: body.title,
-      publishDate: moment().toISOString(),
-      content: body.content,
       summary: body.summary,
-      image: imageUrl
+      content: body.content,
+      image: imageUrl,
+      publishDate: moment().toISOString(),
+      viewCount: 0
     };
     const params: PutItemInput = {
       TableName: tableName,
@@ -163,3 +164,27 @@ router.post(
     res.send(post);
   }
 );
+
+router.patch('/:postTitle/view-count/increment', async (req: Request, res: Response) => {
+  const existingPost = await getPost(req.params.postTitle);
+  if (isUndefined(existingPost)) {
+    throw new HttpError('No post found with that title', 404);
+  }
+
+  const params: UpdateItemInput = {
+    TableName: tableName,
+    Key: {
+      title: (existingPost.title as AttributeValue)
+    },
+    UpdateExpression: 'set viewCount = viewCount + :one',
+    ExpressionAttributeValues: {
+      ':one': (1 as AttributeValue)
+    },
+    ReturnValues: 'UPDATED_NEW'
+  };
+  const result = await docClient.update(params).promise();
+
+  res.send({
+    viewCount: result.Attributes?.viewCount
+  });
+});

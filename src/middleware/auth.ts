@@ -1,19 +1,16 @@
 import jwt from 'express-jwt';
-import jwksRsa from 'jwks-rsa';
+import jwks from 'jwks-rsa';
+
+const issuer = `https://${process.env.AUTH0_TENANT}.auth0.com/`;
 
 export const checkJwt = jwt({
-  // Dynamically provide a signing key
-  // based on the kid in the header and
-  // the signing keys provided by the JWKS endpoint.
-  secret: jwksRsa.expressJwtSecret({
+  secret: jwks.expressJwtSecret({
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5,
-    jwksUri: 'https://prestonmontewest.auth0.com/.well-known/jwks.json'
+    jwksUri: `${issuer}.well-known/jwks.json`
   }),
-
-  // Validate the audience and the issuer.
-  audience: 'http://localhost:3000',
-  issuer: 'https://prestonmontewest.auth0.com/',
+  audience: process.env.AUTH0_AUDIENCE,
+  issuer,
   algorithms: ['RS256']
 });
