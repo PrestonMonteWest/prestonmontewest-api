@@ -11,7 +11,7 @@ import {
   UpdateItemInput
 } from 'aws-sdk/clients/dynamodb';
 import S3 from 'aws-sdk/clients/s3';
-import { Request, Response, Router } from 'express';
+import { Router } from 'express';
 import jwtAuthz from 'express-jwt-authz';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
@@ -63,42 +63,50 @@ async function getPost(
 
 export const router: Router = Router();
 
-router.get('/:postTitle', async (req: Request, res: Response) => {
-  const post = await getPost(req.params.postTitle);
-  if (isUndefined(post)) {
-    throw new HttpError('No post found with that title', 404);
+router.get('/:postTitle', async (req, res, next) => {
+  try {
+    const post = await getPost(req.params.postTitle);
+    if (isUndefined(post)) {
+      throw new HttpError('No post found with that title', 404);
+    }
+    res.send(post);
+  } catch (err) {
+    next(err);
   }
-  res.send(post);
 });
 
-router.get('/', async (req: Request, res: Response) => {
-  const posts: any[] = [];
-  const limit: number = +req.query.limit;
-  if (req.query.limit && (!Number.isInteger(limit) || limit <= 0)) {
-    throw new HttpError('Limit must be a positive integer', 400);
-  }
-  const params: ScanInput = { TableName: tableName };
-  const title: string = req.query.title as string;
-  if (title) {
-    params.ExpressionAttributeValues = {
-      ':t': (titleCase(title) as AttributeValue)
-    };
-    params.FilterExpression = 'contains(title, :t)';
-  }
-  if (limit) params.Limit = limit;
+router.get('/', async (req, res, next) => {
+  try {
+    const posts: any[] = [];
+    const limit: number = +req.query.limit;
+    if (req.query.limit && (!Number.isInteger(limit) || limit <= 0)) {
+      throw new HttpError('Limit must be a positive integer', 400);
+    }
+    const params: ScanInput = { TableName: tableName };
+    const title: string = req.query.title as string;
+    if (title) {
+      params.ExpressionAttributeValues = {
+        ':t': (titleCase(title) as AttributeValue)
+      };
+      params.FilterExpression = 'contains(title, :t)';
+    }
+    if (limit) params.Limit = limit;
 
-  let data: ScanOutput = await docClient.scan(params).promise();
-  let lastKey: Key | undefined = data.LastEvaluatedKey;
-  posts.push(...(data.Items as any[]));
-  while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
-    if (limit) params.Limit = limit - posts.length;
-    params.ExclusiveStartKey = lastKey;
-    data = await docClient.scan(params).promise();
-    lastKey = data.LastEvaluatedKey;
+    let data: ScanOutput = await docClient.scan(params).promise();
+    let lastKey: Key | undefined = data.LastEvaluatedKey;
     posts.push(...(data.Items as any[]));
-  }
+    while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
+      if (limit) params.Limit = limit - posts.length;
+      params.ExclusiveStartKey = lastKey;
+      data = await docClient.scan(params).promise();
+      lastKey = data.LastEvaluatedKey;
+      posts.push(...(data.Items as any[]));
+    }
 
-  res.send(posts);
+    res.send(posts);
+  } catch (err) {
+    next(err);
+  }
 });
 
 async function validatePost(post: Post) {
@@ -130,11 +138,8 @@ async function validatePost(post: Post) {
 }
 
 const singleImage = fileUpload.single('image');
-router.post(
-  '/',
-  checkJwt,
-  singleImage,
-  async (req: Request, res: Response) => {
+router.post('/', checkJwt, singleImage, async (req, res, next) => {
+  try {
     const body: Post = req.body;
     body.image = req.file;
     await validatePost(body);
@@ -162,29 +167,35 @@ router.post(
     };
     await docClient.put(params).promise();
     res.send(post);
+  } catch (err) {
+    next(err);
   }
-);
+});
 
-router.patch('/:postTitle/view-count/increment', async (req: Request, res: Response) => {
-  const existingPost = await getPost(req.params.postTitle);
-  if (isUndefined(existingPost)) {
-    throw new HttpError('No post found with that title', 404);
+router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
+  try {
+    const existingPost = await getPost(req.params.postTitle);
+    if (isUndefined(existingPost)) {
+      throw new HttpError('No post found with that title', 404);
+    }
+
+    const params: UpdateItemInput = {
+      TableName: tableName,
+      Key: {
+        title: (existingPost.title as AttributeValue)
+      },
+      UpdateExpression: 'set viewCount = viewCount + :one',
+      ExpressionAttributeValues: {
+        ':one': (1 as AttributeValue)
+      },
+      ReturnValues: 'UPDATED_NEW'
+    };
+    const result = await docClient.update(params).promise();
+
+    res.send({
+      viewCount: result.Attributes?.viewCount
+    });
+  } catch (err) {
+    next(err);
   }
-
-  const params: UpdateItemInput = {
-    TableName: tableName,
-    Key: {
-      title: (existingPost.title as AttributeValue)
-    },
-    UpdateExpression: 'set viewCount = viewCount + :one',
-    ExpressionAttributeValues: {
-      ':one': (1 as AttributeValue)
-    },
-    ReturnValues: 'UPDATED_NEW'
-  };
-  const result = await docClient.update(params).promise();
-
-  res.send({
-    viewCount: result.Attributes?.viewCount
-  });
 });
