@@ -12,7 +12,6 @@ import {
 } from 'aws-sdk/clients/dynamodb';
 import S3 from 'aws-sdk/clients/s3';
 import { Router } from 'express';
-import jwtAuthz from 'express-jwt-authz';
 import { isString, isUndefined } from 'lodash';
 import moment from 'moment';
 import multer from 'multer';
@@ -78,8 +77,8 @@ router.get('/:postTitle', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const posts: any[] = [];
-    const limit: number = +req.query.limit;
-    if (req.query.limit && (!Number.isInteger(limit) || limit <= 0)) {
+    const limit: number = Number(req?.query?.limit);
+    if (!Number.isInteger(limit) || limit <= 0) {
       throw new HttpError('Limit must be a positive integer', 400);
     }
     const params: ScanInput = { TableName: tableName };
