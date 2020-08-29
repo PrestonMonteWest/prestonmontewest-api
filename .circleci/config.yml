@@ -7,10 +7,10 @@ jobs:
       - checkout
       - run:
           name: Install Packages
-          command: npm i
+          command: yarn
       - run:
           name: Build Production API
-          command: npm run build
+          command: yarn run build
       - persist_to_workspace:
           root: dist
           paths:
