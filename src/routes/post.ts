@@ -77,8 +77,10 @@ router.get('/:postTitle', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const posts: any[] = [];
-    const limit: number = Number(req?.query?.limit);
-    if (!Number.isInteger(limit) || limit <= 0) {
+    let limit: number = req?.query?.limit;
+    const limitDefined: boolean = !isUndefined(limit);
+    limit = Number(limit);
+    if (limitDefined && (!Number.isInteger(limit) || limit <= 0)) {
       throw new HttpError('Limit must be a positive integer', 400);
     }
     const params: ScanInput = { TableName: tableName };
