@@ -1,4 +1,4 @@
-// Copied from @types/multer because it does not export this interface
+// Copied from @types/multer because it does not export this interface.
 interface File {
   /** Name of the form field associated with this file. */
   fieldname: string;
