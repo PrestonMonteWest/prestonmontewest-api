@@ -1,30 +1,26 @@
-import { Router } from 'express';
+const envNames: string[] = [
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_REGION',
+  'AWS_DYNAMODB_TABLE',
+  'AWS_S3_BUCKET'
+];
 
 (async () => {
   if (process.env.NODE_ENV !== 'production') {
     (await import('dotenv')).config();
   }
-  if (!process.env.AWS_ACCESS_KEY_ID) {
-    throw new Error('AWS_ACCESS_KEY_ID environment variable required');
-  }
-  if (!process.env.AWS_SECRET_ACCESS_KEY) {
-    throw new Error('AWS_SECRET_ACCESS_KEY environment variable required');
-  }
-  if (!process.env.AWS_REGION) {
-    throw new Error('AWS_REGION environment variable required');
-  }
-  if (!process.env.AWS_DYNAMODB_TABLE) {
-    throw new Error('AWS_DYNAMODB_TABLE environment variable required');
-  }
-  if (!process.env.AWS_S3_BUCKET) {
-    throw new Error('AWS_S3_BUCKET environment variable required');
-  }
 
-  const postRouter: Router = (await import('./routes/post')).router;
+  envNames.forEach((envName) => {
+    if (!process.env[envName]) {
+      throw new Error(`${envName} environment variable required`);
+    }
+  });
+
   (await import('./init-server')).initServer([
     {
       url: '/post',
-      router: postRouter
+      router: (await import('./routes/post')).router
     }
   ]);
 })();
