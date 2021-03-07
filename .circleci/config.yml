@@ -23,16 +23,16 @@ jobs:
           at: dist
       - add_ssh_keys:
           fingerprints:
-            - "89:72:06:ee:03:0c:35:72:62:22:03:d7:11:5e:1f:0e"
+            - "b3:d7:69:6a:00:79:ba:61:37:fa:b7:80:38:6c:c6:14"
       - run:
-          name: Add Host To Known Hosts
+          name: Add Host to Known Hosts
           command: ssh-keyscan -H prestonmontewest.com >> ~/.ssh/known_hosts
       - run:
           name: Deploy Bundle
-          command: scp dist/index.js ec2-user@prestonmontewest.com:/var/www/api
+          command: scp dist/index.js ubuntu@prestonmontewest.com:/var/www/prestonmontewest/api
       - run:
           name: Restart API Service
-          command: ssh ec2-user@prestonmontewest.com 'sudo systemctl restart prestonmontewest-api'
+          command: ssh ubuntu@prestonmontewest.com 'sudo systemctl restart prestonmontewest-api'
 workflows:
   version: 2
   build-deploy:
