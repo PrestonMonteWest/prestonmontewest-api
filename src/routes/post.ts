@@ -2,10 +2,11 @@ import {
   AttributeMap,
   AttributeValue,
   DocumentClient,
-  GetItemInput,
   GetItemOutput,
   Key,
   PutItemInput,
+  QueryInput,
+  QueryOutput,
   ScanInput,
   ScanOutput,
   UpdateItemInput
@@ -50,14 +51,17 @@ async function getPost(
   if (decode) {
     title = urlDecode(title);
   }
-  const params: GetItemInput = {
-    Key: {
-      title: (title as AttributeValue)
-    },
-    TableName: tableName
+  const params: QueryInput = {
+    ExpressionAttributeValues: {
+      ":title": title
+     } as any,
+     ScanIndexForward: false,
+     KeyConditionExpression: "title = :title",
+     Limit: 1,
+     TableName: tableName
   };
-  const data: GetItemOutput = await docClient.get(params).promise();
-  return data.Item;
+  const data: QueryOutput = await docClient.query(params).promise();
+  return data.Count === 1 && data.Items ? data.Items[0] : undefined;
 }
 
 export const router: Router = Router();
