@@ -1,8 +1,10 @@
+import 'reflect-metadata';
+import { initServer } from './init-server';
+
 const envNames: string[] = [
   'AWS_ACCESS_KEY_ID',
   'AWS_SECRET_ACCESS_KEY',
   'AWS_REGION',
-  'AWS_DYNAMODB_TABLE',
   'AWS_S3_BUCKET'
 ];
 
@@ -17,10 +19,10 @@ const envNames: string[] = [
     }
   });
 
-  (await import('./init-server')).initServer([
+  initServer([
     {
       url: '/post',
-      router: (await import('./routes/post')).router
+      getRouter: (await import('./routes/post')).default
     }
   ]);
 })();
