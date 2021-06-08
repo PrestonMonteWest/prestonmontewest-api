@@ -2,7 +2,7 @@ import S3 from 'aws-sdk/clients/s3';
 import { Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import multer from 'multer';
-import { Connection, FindManyOptions } from 'typeorm';
+import { FindManyOptions, getConnection } from 'typeorm';
 import { HttpError } from '../classes';
 import { CreatePostRequest, Post } from '../entities';
 import { checkJwt } from '../middleware';
@@ -14,13 +14,8 @@ const awsRegion: string = process.env.AWS_REGION as string;
 const s3Hostname: string = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com`;
 const s3HostnamePostPath: string = `${s3Hostname}/post`;
 
-const router: Router = Router();
-let connection: Connection;
-export default function(conn: Connection) {
-  connection = conn;
-  return router;
-}
-
+export const router = Router();
+const connection = getConnection();
 const fileUpload = multer();
 
 function urlDecode(value: string): string {

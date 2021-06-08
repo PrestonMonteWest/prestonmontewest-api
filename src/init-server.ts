@@ -1,13 +1,9 @@
 import express, { Express, NextFunction, Request, Response, Router } from 'express';
 import morgan from 'morgan';
-import { Connection, createConnection } from "typeorm";
-import { Post } from './entities';
-
-export type RouterFn = (conn: Connection) => Router;
 
 export interface RouterItem {
   url: string;
-  getRouter: RouterFn;
+  router: Router;
 }
 
 export async function initServer(routerItems: RouterItem[]): Promise<Express> {
@@ -16,26 +12,8 @@ export async function initServer(routerItems: RouterItem[]): Promise<Express> {
   app.use(morgan('tiny'));
   app.use(express.json());
 
-  app.get('/authorized', function (req, res) {
-    res.send('Secured Resource');
-  });
-
-  const conn = await createConnection({
-    "type": "postgres",
-    "host": "localhost",
-    "port": 5432,
-    "username": "preston",
-    "password": "247Pmw918?!2157",
-    "database": "prestonmontewest",
-    "entities": [
-      Post
-    ],
-    "synchronize": true,
-    "logging": false,
-  });
-
   for (const item of routerItems) {
-    app.use(item.url, item.getRouter(conn));
+    app.use(item.url, item.router);
   }
 
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

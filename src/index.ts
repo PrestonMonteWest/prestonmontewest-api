@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { createConnection, getConnectionOptions } from 'typeorm';
+import { Post } from './entities';
 import { initServer } from './init-server';
 
 const envNames: string[] = [
@@ -19,10 +21,18 @@ const envNames: string[] = [
     }
   });
 
+  const baseOptions = await getConnectionOptions();
+  await createConnection({
+    ...baseOptions,
+    "entities": [
+      Post
+    ],
+  });
+
   initServer([
     {
       url: '/post',
-      getRouter: (await import('./routes/post')).default
+      router: (await import('./routes/post')).router
     }
   ]);
 })();
