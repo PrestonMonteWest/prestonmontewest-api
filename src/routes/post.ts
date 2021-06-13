@@ -131,30 +131,24 @@ router.post('/', checkJwt, singleImage, async (req, res, next) => {
   }
 });
 
-// router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
-//   try {
-//     const existingPost = await getPost(req.params.postTitle);
-//     if (isUndefined(existingPost)) {
-//       throw new HttpError('No post found with that title', 404);
-//     }
+router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
+  try {
+    const existingPost = await getPost(req.params.postTitle);
+    if (isUndefined(existingPost)) {
+      throw new HttpError('No post found with that title', 404);
+    }
 
-//     const params: UpdateItemInput = {
-//       TableName: tableName,
-//       Key: {
-//         title: (existingPost.title as AttributeValue)
-//       },
-//       UpdateExpression: 'set viewCount = viewCount + :one',
-//       ExpressionAttributeValues: {
-//         ':one': (1 as AttributeValue)
-//       },
-//       ReturnValues: 'UPDATED_NEW'
-//     };
-//     const result = await docClient.update(params).promise();
+    await connection.getRepository(Post)
+      .createQueryBuilder()
+      .update()
+      .set({ viewCount: () => '"viewCount" + 1' })
+      .where({ id: existingPost.id })
+      .execute();
 
-//     res.send({
-//       viewCount: result.Attributes?.viewCount
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// });
+    existingPost.viewCount++;
+
+    res.send(existingPost);
+  } catch (err) {
+    next(err);
+  }
+});
