@@ -1,12 +1,12 @@
+import express, { Express, NextFunction, Request, Response, Router } from 'express';
 import morgan from 'morgan';
-import express, { Express, Router, Request, Response, NextFunction } from 'express';
 
 export interface RouterItem {
   url: string;
   router: Router;
 }
 
-export function initServer(routerItems: RouterItem[]): Express {
+export async function initServer(routerItems: RouterItem[]): Promise<Express> {
   const app: Express = express();
 
   app.use(morgan('tiny'));
@@ -25,19 +25,10 @@ export function initServer(routerItems: RouterItem[]): Express {
       res = res.status(err.status || 500);
     }
 
-    const responseJson: any = {
-        name: err.name,
-        message: err.message
-    }
-
-    if (err.status) {
-      responseJson.status = err.status;
-    }
-
-    res.json(responseJson);
+    res.json(err);
   });
 
-  const port: number = +(process.env.PORT || 3000);
+  const port = +(process.env.PORT || 3000);
   app.listen(port, () => console.log(`API server listening on port ${port}`));
   return app;
 }

@@ -1,27 +1,11 @@
-import {
-  AttributeMap,
-  AttributeValue,
-  DocumentClient,
-  GetItemOutput,
-  Key,
-  PutItemInput,
-  QueryInput,
-  QueryOutput,
-  ScanInput,
-  ScanOutput,
-  UpdateItemInput
-} from 'aws-sdk/clients/dynamodb';
 import S3 from 'aws-sdk/clients/s3';
 import { Router } from 'express';
 import { isString, isUndefined } from 'lodash';
-import moment from 'moment';
 import multer from 'multer';
-
-import { Post, HttpError } from '../classes';
+import { FindManyOptions, getConnection } from 'typeorm';
+import { HttpError } from '../classes';
+import { CreatePostRequest, Post } from '../entities';
 import { checkJwt } from '../middleware';
-
-const docClient: DocumentClient = new DocumentClient();
-const tableName: string = process.env.AWS_DYNAMODB_TABLE as string;
 
 const s3Client: S3 = new S3();
 const s3Bucket: string = process.env.AWS_S3_BUCKET as string;
@@ -30,6 +14,8 @@ const awsRegion: string = process.env.AWS_REGION as string;
 const s3Hostname: string = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com`;
 const s3HostnamePostPath: string = `${s3Hostname}/post`;
 
+export const router = Router();
+const connection = getConnection();
 const fileUpload = multer();
 
 function urlDecode(value: string): string {
@@ -47,24 +33,12 @@ function titleCase(value: string): string {
 async function getPost(
   title: string,
   decode: boolean = true
-): Promise<AttributeMap | undefined> {
+): Promise<Post | undefined> {
   if (decode) {
     title = urlDecode(title);
   }
-  const params: QueryInput = {
-    ExpressionAttributeValues: {
-      ":title": title
-     } as any,
-     ScanIndexForward: false,
-     KeyConditionExpression: "title = :title",
-     Limit: 1,
-     TableName: tableName
-  };
-  const data: QueryOutput = await docClient.query(params).promise();
-  return data.Count === 1 && data.Items ? data.Items[0] : undefined;
+  return connection.getRepository(Post).findOne({ title });
 }
-
-export const router: Router = Router();
 
 router.get('/:postTitle', async (req, res, next) => {
   try {
@@ -80,46 +54,34 @@ router.get('/:postTitle', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const posts: any[] = [];
-    const limit: number = Number(req?.query?.limit);
+    const limit = Number(req?.query?.limit);
     if (req?.query?.limit && (!Number.isInteger(limit) || limit <= 0)) {
       throw new HttpError('Limit must be a positive integer', 400);
     }
-    const params: ScanInput = { TableName: tableName };
-    const title: string = req.query.title as string;
+    const title = req.query.title as string | undefined;
+    const options: FindManyOptions = {};
+    if (!Number.isNaN(limit)) {
+      options.take = limit;
+    }
     if (title) {
-      params.ExpressionAttributeValues = {
-        ':t': (titleCase(title) as AttributeValue)
-      };
-      params.FilterExpression = 'contains(title, :t)';
+      // todo: impl better searching
+      options.where = { title };
     }
-    if (limit) params.Limit = limit;
-
-    let data: ScanOutput = await docClient.scan(params).promise();
-    let lastKey: Key | undefined = data.LastEvaluatedKey;
-    posts.push(...(data.Items as any[]));
-    while ((limit && posts.length < limit && lastKey) || (!limit && lastKey)) {
-      if (limit) params.Limit = limit - posts.length;
-      params.ExclusiveStartKey = lastKey;
-      data = await docClient.scan(params).promise();
-      lastKey = data.LastEvaluatedKey;
-      posts.push(...(data.Items as any[]));
-    }
-
+    const posts = await connection.getRepository(Post).find(options);
     res.send(posts);
   } catch (err) {
     next(err);
   }
 });
 
-async function validatePost(post: Post) {
+async function validatePost(post: CreatePostRequest) {
   post.title = isString(post.title) ? post.title.trim() : '';
   if (!post.title) {
     throw new HttpError('Title must be a nonempty string', 400);
   }
-  // Store in DynamoDB as title case
+  // store in database as title case
   post.title = titleCase(post.title);
-  // Error out if post already exists
+  // error out if post already exists
   const existingPost = await getPost(post.title, false);
   if (existingPost) {
     throw new HttpError('Post already exists', 400);
@@ -143,7 +105,7 @@ async function validatePost(post: Post) {
 const singleImage = fileUpload.single('image');
 router.post('/', checkJwt, singleImage, async (req, res, next) => {
   try {
-    const body: Post = req.body;
+    const body: CreatePostRequest = req.body;
     body.image = req.file;
     await validatePost(body);
 
@@ -156,49 +118,43 @@ router.post('/', checkJwt, singleImage, async (req, res, next) => {
     }).promise();
 
     const imageUrl = `${s3HostnamePostPath}/${body.image.originalname}`;
-    const post: any = {
-      title: body.title,
-      summary: body.summary,
-      content: body.content,
-      image: imageUrl,
-      publishDate: moment().toISOString(),
-      viewCount: 0
-    };
-    const params: PutItemInput = {
-      TableName: tableName,
-      Item: post
-    };
-    await docClient.put(params).promise();
+    let post: Post | undefined = new Post();
+    post.title = body.title;
+    post.summary = body.summary;
+    post.content = body.content;
+    post.image = imageUrl;
+
+    post = await connection.getRepository(Post).save(post);
     res.send(post);
   } catch (err) {
     next(err);
   }
 });
 
-router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
-  try {
-    const existingPost = await getPost(req.params.postTitle);
-    if (isUndefined(existingPost)) {
-      throw new HttpError('No post found with that title', 404);
-    }
+// router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
+//   try {
+//     const existingPost = await getPost(req.params.postTitle);
+//     if (isUndefined(existingPost)) {
+//       throw new HttpError('No post found with that title', 404);
+//     }
 
-    const params: UpdateItemInput = {
-      TableName: tableName,
-      Key: {
-        title: (existingPost.title as AttributeValue)
-      },
-      UpdateExpression: 'set viewCount = viewCount + :one',
-      ExpressionAttributeValues: {
-        ':one': (1 as AttributeValue)
-      },
-      ReturnValues: 'UPDATED_NEW'
-    };
-    const result = await docClient.update(params).promise();
+//     const params: UpdateItemInput = {
+//       TableName: tableName,
+//       Key: {
+//         title: (existingPost.title as AttributeValue)
+//       },
+//       UpdateExpression: 'set viewCount = viewCount + :one',
+//       ExpressionAttributeValues: {
+//         ':one': (1 as AttributeValue)
+//       },
+//       ReturnValues: 'UPDATED_NEW'
+//     };
+//     const result = await docClient.update(params).promise();
 
-    res.send({
-      viewCount: result.Attributes?.viewCount
-    });
-  } catch (err) {
-    next(err);
-  }
-});
+//     res.send({
+//       viewCount: result.Attributes?.viewCount
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// });
