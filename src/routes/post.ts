@@ -59,7 +59,7 @@ router.get('/', async (req, res, next) => {
       throw new HttpError('Limit must be a positive integer', 400);
     }
     const title = req.query.title as string | undefined;
-    const options: FindManyOptions = {};
+    const options: FindManyOptions = { order: { publishDate: 'DESC' } };
     if (!Number.isNaN(limit)) {
       options.take = limit;
     }
