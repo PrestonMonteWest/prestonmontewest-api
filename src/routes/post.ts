@@ -2,7 +2,7 @@ import S3 from 'aws-sdk/clients/s3';
 import { Router } from 'express';
 import { isString, isUndefined } from 'lodash';
 import multer from 'multer';
-import { FindManyOptions, getConnection } from 'typeorm';
+import { FindManyOptions, getConnection, ILike } from 'typeorm';
 import { HttpError } from '../classes';
 import { CreatePostRequest, Post } from '../entities';
 import { checkJwt } from '../middleware';
@@ -64,8 +64,7 @@ router.get('/', async (req, res, next) => {
       options.take = limit;
     }
     if (title) {
-      // todo: impl better searching
-      options.where = { title };
+      options.where = { title: ILike(`%${title}%`) };
     }
     const posts = await connection.getRepository(Post).find(options);
     res.send(posts);
