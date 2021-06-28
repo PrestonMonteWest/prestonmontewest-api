@@ -96,7 +96,8 @@ async function validatePost(post: CreatePostRequest) {
     throw new HttpError('Content must be a nonempty string', 400);
   }
 
-  if (post.image.mimetype.split('/')[0] !== 'image') {
+  const mimeType = post.image?.mimetype;
+  if (!isString(mimeType) || mimeType.split('/')[0] !== 'image') {
     throw new HttpError('File must be an image', 400);
   }
 }
