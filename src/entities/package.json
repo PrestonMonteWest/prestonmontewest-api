@@ -1,0 +1,23 @@
+{
+  "name": "@prestonmontewest/entities",
+  "version": "1.0.0",
+  "description": "Entities for my personal website.",
+  "main": "dist/index.js",
+  "files": ["dist"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PrestonMonteWest/prestonmontewest-api.git"
+  },
+  "keywords": [
+    "Preston",
+    "Monte",
+    "West",
+    "Entities"
+  ],
+  "author": "Preston Monte West",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/PrestonMonteWest/prestonmontewest-api/issues"
+  },
+  "homepage": "https://github.com/PrestonMonteWest/prestonmontewest-api#readme"
+}

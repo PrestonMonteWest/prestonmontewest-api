@@ -6,10 +6,9 @@
     "target": "es6",
     "strictNullChecks": true,
     "noImplicitAny": true,
-    "sourceMap": true,
-    "outDir": "dist",
+    "outDir": "src/entities/dist",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
   },
-  "include": [ "src/**/*" ]
+  "include": ["src/entities/**/*"]
 }

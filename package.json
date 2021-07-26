@@ -1,14 +1,14 @@
 {
   "name": "prestonmontewest-api",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "private": true,
-  "project": "prestonmontewest",
   "main": "dist/index.js",
   "scripts": {
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "webpack --config webpack.config.js --progress",
-    "deploy": "scp dist/index.js ec2-user@prestonmontewest.com:/var/www/api",
-    "prestart": "npm run build",
+    "prebuild:entities": "yarn run prebuild",
+    "build:entities": "tsc",
+    "prestart": "yarn run build",
     "start": "PORT=3000 node .",
     "start:watch": "nodemon"
   },

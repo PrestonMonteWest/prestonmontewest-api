@@ -1,6 +1,17 @@
 import { Readable } from "stream";
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
+export enum PostCategory {
+  politics = 'politics',
+  science = 'science',
+  finance = 'finance',
+  philosophy = 'philosophy',
+  technology = 'technology',
+  food = 'food',
+  news = 'news',
+  personal = 'personal',
+}
+
 @Entity()
 export class Post {
   @PrimaryGeneratedColumn("uuid")
@@ -17,6 +28,13 @@ export class Post {
 
   @Column()
   image: string;
+
+  @Column({
+    type: "enum",
+    enum: PostCategory,
+    default: PostCategory.personal
+  })
+  category: PostCategory;
 
   @Column('timestamp without time zone', { nullable: false, default: () => 'CURRENT_TIMESTAMP' })
   publishDate: Date;
