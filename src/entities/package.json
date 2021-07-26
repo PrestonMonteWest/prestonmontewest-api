@@ -1,6 +1,6 @@
 {
   "name": "@prestonmontewest/entities",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Entities for my personal website.",
   "main": "dist/index.js",
   "files": ["dist"],
