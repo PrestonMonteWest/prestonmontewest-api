@@ -1,17 +1,7 @@
-import jwt from 'express-jwt';
-import jwksRsa from 'jwks-rsa';
+import { auth } from 'express-oauth2-jwt-bearer';
 
-const issuer = `https://${process.env.AUTH0_TENANT}.auth0.com/`;
-
-export const checkJwt = jwt({
-  secret: jwksRsa.expressJwtSecret({
-    cache: true,
-    rateLimit: true,
-    jwksRequestsPerMinute: 5,
-    jwksUri: `${issuer}.well-known/jwks.json`
-  }),
-
+export const jwtCheck = auth({
   audience: process.env.AUTH0_AUDIENCE,
-  issuer: [issuer],
-  algorithms: ['RS256']
+  issuerBaseURL: process.env.AUTH0_ISSUER,
+  tokenSigningAlg: 'RS256',
 });

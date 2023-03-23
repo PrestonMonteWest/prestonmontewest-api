@@ -1,8 +1,24 @@
-.dockerignore
-.env
-.git
-.gitignore
-Dockerfile
-dist
-node_modules
-npm-debug.log
+# See https://docs.docker.com/engine/reference/builder/#dockerignore-file for more about ignoring files.
+
+# Docker
+/Dockerfile
+/.dockerignore
+
+# Version control
+/.git
+/.gitignore
+
+# Compiled output
+/dist
+
+# Dependencies
+/node_modules
+
+# IDE - VSCode
+.vscode
+
+# Environment
+/.env
+
+# Logs
+/npm-debug.log*

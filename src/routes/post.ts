@@ -1,30 +1,34 @@
-import S3 from 'aws-sdk/clients/s3';
-import { Router } from 'express';
-import { isString, isUndefined } from 'lodash';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { Request, Router } from 'express';
 import multer from 'multer';
-import { FindManyOptions, getConnection, ILike } from 'typeorm';
-import { HttpError } from '../classes';
-import { CreatePostRequest, Post } from '../entities';
-import { checkJwt } from '../middleware';
+import {
+  CreatePostRequestBody,
+  PgCreatePostRequest,
+  Post,
+  PostCategory,
+} from 'prestonmontewest-entities';
 
-const s3Client: S3 = new S3();
-const s3Bucket: string = process.env.AWS_S3_BUCKET as string;
-const s3BucketPostPath: string = `${s3Bucket}/post`;
-const awsRegion: string = process.env.AWS_REGION as string;
-const s3Hostname: string = `https://${s3Bucket}.s3.${awsRegion}.amazonaws.com`;
-const s3HostnamePostPath: string = `${s3Hostname}/post`;
+import { HttpError } from '../classes/http-error.js';
+import { jwtCheck } from '../middleware/auth.js';
+import { PgRepo } from '../repos/pg.repo.js';
+
+const s3Region = process.env.AWS_REGION;
+const s3Client = new S3Client({ region: s3Region });
+const s3Bucket = process.env.AWS_S3_BUCKET;
+const s3PostFolder = process.env.AWS_S3_POST_FOLDER;
+const s3HostnamePostPath = `https://${s3Bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3PostFolder}`;
 
 export const router = Router();
-const connection = getConnection();
 const fileUpload = multer();
+const pgRepo = PgRepo.instance;
 
 function urlDecode(value: string): string {
   return titleCase(value.replace(/-/g, ' '));
 }
 
 function titleCase(value: string): string {
-  const values: string[] = value.toLowerCase().split(' ');
-  for (let i: number = 0; i < values.length; i++) {
+  const values = value.toLowerCase().split(' ');
+  for (let i = 0; i < values.length; i++) {
     values[i] = values[i].charAt(0).toUpperCase() + values[i].slice(1);
   }
   return values.join(' ');
@@ -32,18 +36,22 @@ function titleCase(value: string): string {
 
 async function getPost(
   title: string,
-  decode: boolean = true
+  decode = true
 ): Promise<Post | undefined> {
   if (decode) {
     title = urlDecode(title);
   }
-  return connection.getRepository(Post).findOne({ title });
+  const result = await pgRepo.pool.query(
+    'select * from post where title = $1;',
+    [title]
+  );
+  return result.rows[0] && pgRepo.map<Post>(result.rows[0]);
 }
 
 router.get('/:postTitle', async (req, res, next) => {
   try {
     const post = await getPost(req.params.postTitle);
-    if (isUndefined(post)) {
+    if (!post) {
       throw new HttpError('No post found with that title', 404);
     }
     res.send(post);
@@ -54,100 +62,111 @@ router.get('/:postTitle', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const limit = Number(req?.query?.limit);
-    if (req?.query?.limit && (!Number.isInteger(limit) || limit <= 0)) {
-      throw new HttpError('Limit must be a positive integer', 400);
+    let statement = 'select * from post';
+    const params: (string | number)[] = [];
+    const title = req.query.title;
+    if (title !== undefined) {
+      if (typeof title !== 'string' || !title) {
+        throw new HttpError('Title must be a nonempty string', 400);
+      }
+
+      params.push(`%${title}%`);
+      statement += ' where title ilike $1';
     }
-    const title = req.query.title as string | undefined;
-    const options: FindManyOptions = { order: { publishDate: 'DESC' } };
-    if (!Number.isNaN(limit)) {
-      options.take = limit;
+
+    const limit = Number(req.query.limit);
+    if (req.query.limit !== undefined) {
+      if (!Number.isInteger(limit) || limit <= 0) {
+        throw new HttpError('Limit must be a positive integer', 400);
+      }
+
+      params.push(limit);
+      statement += ' limit $2';
     }
-    if (title) {
-      options.where = { title: ILike(`%${title}%`) };
-    }
-    const posts = await connection.getRepository(Post).find(options);
+
+    statement += ';';
+
+    const result = await pgRepo.pool.query(statement, params);
+    const posts = result.rows.map((row) => pgRepo.map<Post>(row));
     res.send(posts);
   } catch (err) {
     next(err);
   }
 });
 
-async function validatePost(post: CreatePostRequest) {
-  post.title = isString(post.title) ? post.title.trim() : '';
-  if (!post.title) {
+async function validatePost(
+  req: Request
+): Promise<[CreatePostRequestBody, Express.Multer.File]> {
+  if (!req.file) {
+    throw new HttpError('File is required', 400);
+  }
+
+  const file = req.file;
+  const body = req.body;
+
+  body.title = typeof body.title === 'string' ? body.title.trim() : '';
+  if (!body.title) {
     throw new HttpError('Title must be a nonempty string', 400);
   }
-  // store in database as title case
-  post.title = titleCase(post.title);
-  // error out if post already exists
-  const existingPost = await getPost(post.title, false);
+  // Store in database as title case
+  body.title = titleCase(body.title);
+  // Error out if post already exists
+  const existingPost = await getPost(body.title, false);
   if (existingPost) {
     throw new HttpError('Post already exists', 400);
   }
 
-  post.summary = isString(post.summary) ? post.summary.trim() : '';
-  if (!post.summary) {
+  body.summary = typeof body.summary === 'string' ? body.summary.trim() : '';
+  if (!body.summary) {
     throw new HttpError('Summary must be a nonempty string', 400);
   }
 
-  post.content = isString(post.content) ? post.content.trim() : '';
-  if (!post.content) {
+  body.content = typeof body.content === 'string' ? body.content.trim() : '';
+  if (!body.content) {
     throw new HttpError('Content must be a nonempty string', 400);
   }
 
-  const mimeType = post.image?.mimetype;
-  if (!isString(mimeType) || mimeType.split('/')[0] !== 'image') {
+  if (file.mimetype.split('/')[0] !== 'image') {
     throw new HttpError('File must be an image', 400);
   }
+
+  return [body, file];
 }
 
 const singleImage = fileUpload.single('image');
-router.post('/', checkJwt, singleImage, async (req, res, next) => {
+router.post('/', jwtCheck, singleImage, async (req, res, next) => {
   try {
-    const body: CreatePostRequest = req.body;
-    body.image = req.file;
-    await validatePost(body);
-
-    await s3Client.putObject({
-      Bucket: s3BucketPostPath,
-      Key: body.image.originalname,
-      Body: body.image.buffer,
-      ContentType: body.image.mimetype,
-      ACL: 'public-read'
-    }).promise();
-
-    const imageUrl = `${s3HostnamePostPath}/${body.image.originalname}`;
-    let post: Post | undefined = new Post();
-    post.title = body.title;
-    post.summary = body.summary;
-    post.content = body.content;
-    post.image = imageUrl;
-
-    post = await connection.getRepository(Post).save(post);
-    res.send(post);
-  } catch (err) {
-    next(err);
-  }
-});
-
-router.patch('/:postTitle/view-count/increment', async (req, res, next) => {
-  try {
-    const existingPost = await getPost(req.params.postTitle);
-    if (isUndefined(existingPost)) {
-      throw new HttpError('No post found with that title', 404);
+    if (!req.auth?.payload?.sub) {
+      throw new HttpError('Unauthorized', 401);
     }
 
-    await connection.getRepository(Post)
-      .createQueryBuilder()
-      .update()
-      .set({ viewCount: () => '"viewCount" + 1' })
-      .where({ id: existingPost.id })
-      .execute();
+    const [body, file] = await validatePost(req);
 
-    existingPost.viewCount++;
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: s3Bucket,
+        Key: `${s3PostFolder}/${file.originalname}`,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        ACL: 'public-read',
+      })
+    );
 
-    res.send(existingPost);
+    const post: PgCreatePostRequest = {
+      title: body.title,
+      summary: body.summary,
+      content: body.content,
+      category: PostCategory.programming,
+      image_url: `${s3HostnamePostPath}/${file.originalname}`,
+      created_by: req.auth.payload.sub,
+    };
+
+    const createdPost = await pgRepo.callFunction<PgCreatePostRequest, Post>(
+      'create_post',
+      post
+    );
+
+    res.send(createdPost);
   } catch (err) {
     next(err);
   }

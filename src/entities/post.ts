@@ -1,50 +1,37 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-
 export enum PostCategory {
-  politics = 'politics',
-  science = 'science',
-  finance = 'finance',
-  philosophy = 'philosophy',
-  technology = 'technology',
-  food = 'food',
-  news = 'news',
-  personal = 'personal',
+  politics = 'Politics',
+  programming = 'Programming',
+  science = 'Science',
+  finance = 'Finance',
+  philosophy = 'Philosophy',
+  technology = 'Technology',
+  media = 'Media',
+  food = 'Food',
 }
 
-@Entity()
-export class Post {
-  @PrimaryGeneratedColumn("uuid")
+export interface Post {
   id: string;
-
-  @Column({ unique: true })
   title: string;
-
-  @Column("text")
   summary: string;
-
-  @Column("text")
   content: string;
-
-  @Column()
-  image: string;
-
-  @Column({
-    type: "enum",
-    enum: PostCategory,
-    default: PostCategory.personal
-  })
+  imageUrl: string;
   category: PostCategory;
-
-  @Column('timestamp without time zone', { nullable: false, default: () => 'CURRENT_TIMESTAMP' })
-  publishDate: Date;
-
-  @Column({ nullable: false, default: 0 })
+  publishTime: string;
   viewCount: number;
 }
 
-export interface CreatePostRequest {
+interface BaseCreatePost {
   title: string;
   summary: string;
   content: string;
-  image: any;
+  category: PostCategory;
+}
+
+export interface CreatePostRequestBody extends BaseCreatePost {
+  imageUrl?: string;
+}
+
+export interface PgCreatePostRequest extends BaseCreatePost {
+  image_url: string;
+  created_by: string;
 }

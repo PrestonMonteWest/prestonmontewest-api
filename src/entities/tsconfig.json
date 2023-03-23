@@ -1,6 +1,4 @@
 {
-  "include": ["src/**/*"],
-  "exclude": ["src/entities"],
   "compilerOptions": {
     "outDir": "dist",
     "target": "ES2022",
@@ -8,6 +6,7 @@
     "module": "ES2022",
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
+    "declaration": true,
     "removeComments": true,
     "strictNullChecks": true,
     "noImplicitAny": true
